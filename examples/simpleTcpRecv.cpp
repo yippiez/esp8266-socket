@@ -8,9 +8,9 @@
 TCPSocket s;
 const char* ssid = "ssid";
 const char* password = "pass";
+char buffer[512];
 
 void setup() {
-  // put your setup code here, to run once:
   Serial.begin(115200);
   
   WiFi.begin(ssid, password);
@@ -30,8 +30,11 @@ void setup() {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
   delay(500);
-  s.send("test", 4); 
-  Serial.println(s.read());
+  s.send("test\n");
+  if(s.data_available() != -1){
+    s.read(buffer);
+    Serial.println(buffer);
+    memset(buffer, 0, 512);
+    }
 }
