@@ -28,7 +28,8 @@ class TCPSocket{
         err_t _recv(tcp_pcb* pcb, pbuf* p, err_t err);
         static err_t recv_callback(void* arg, tcp_pcb* pcb, pbuf* p, err_t err);
         char read();
-        char peek();
+        err_t read(char* dst);
+        err_t data_available();
     
     private:
         void _update_buffer(size_t size);

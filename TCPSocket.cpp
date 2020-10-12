@@ -7,6 +7,7 @@ extern "C"{
 #include "lwip/tcp.h"
 #include "lwip/pbuf.h"
 #include "lwip/err.h"
+#include "osapi.h"
 }
 
 #include "EasySocket.h"
@@ -65,15 +66,23 @@ char TCPSocket::read(){
     return c;
 }
 
-char TCPSocket::peek(){
+err_t TCPSocket::read(char* dst){
     if(!_rx_pbuf)
-        return 0;
+        return ERR_BUF;
+    
+    os_memcpy(dst, ((char *)(_rx_pbuf->payload)), _rx_pbuf->len);
 
-    return ((char *)(_rx_pbuf->payload))[_rx_pbuf_offset];
+    _update_buffer(_rx_pbuf->len);
+    
+    return ERR_OK;
 }
 
 err_t TCPSocket::recv_callback(void* arg, tcp_pcb* pcb, pbuf* p, err_t err){
     return reinterpret_cast<TCPSocket*>(arg)->_recv(pcb, p, err);
+}
+
+err_t TCPSocket::data_available(){
+    return _rx_pbuf ? 1 : -1;
 }
 
 void TCPSocket::_update_buffer(size_t size){
