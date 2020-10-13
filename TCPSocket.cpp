@@ -8,6 +8,7 @@ extern "C"{
 #include "lwip/pbuf.h"
 #include "lwip/err.h"
 #include "osapi.h"
+#include "string.h"
 }
 
 #include "EasySocket.h"
@@ -27,6 +28,15 @@ err_t TCPSocket::connect(IPAddress ip, uint16_t port){
     return err;
 }
 
+err_t TCPSocket::bind(IPAddress ip, uint16_t port){
+    if (!tcp_socket)
+        return ERR_CONN;
+
+    err_t err = tcp_bind(tcp_socket, ip, port);
+
+    return err;
+}
+
 err_t TCPSocket::send(const void* data, uint16_t len){
     if(!tcp_socket)
         return ERR_CONN;
@@ -39,7 +49,7 @@ err_t TCPSocket::send(const void* data, uint16_t len){
 }
 
 err_t TCPSocket::send(const void* data){
-    return TCPSocket::send(data, STRLEN(data));
+    return TCPSocket::send(data, strlen((const char *)data));
 }
 
 err_t TCPSocket::_recv(tcp_pcb* pcb, pbuf* p, err_t err){
