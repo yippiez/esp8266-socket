@@ -1,8 +1,4 @@
-/*
-TODO
-    Read x bytes out of buffer
-    bind/listen
-*/
+
 extern "C"{
 #include "lwip/tcp.h"
 #include "lwip/pbuf.h"
@@ -18,6 +14,12 @@ TCPSocket::TCPSocket(){
     tcp_socket = tcp_new();
     tcp_recv(tcp_socket, &recv_callback);
     tcp_arg(tcp_socket, this);  // arg field in callback functions becames this object
+}
+
+TCPSocket::TCPSocket(tcp_pcb* pcb){
+    tcp_socket = pcb;
+    tcp_recv(tcp_socket, &recv_callback);
+    tcp_arg(tcp_socket, this);
 }
 
 err_t TCPSocket::connect(IPAddress ip, uint16_t port){
@@ -37,15 +39,53 @@ err_t TCPSocket::bind(IPAddress ip, uint16_t port){
     return err;
 }
 
+void TCPSocket::listen(){
+    tcp_socket = tcp_listen(tcp_socket);  // listen destroys the given and returns more minimal pcb
+    tcp_accept(tcp_socket, &accept_callback);
+}
+
+TCPSocket* TCPSocket::accept(){
+    
+    if(!_list_head){
+        return 0;
+    }
+
+    tcp_pcb *pcb = _list_head->self->tcp;
+    TCPSocket *new_soc = new TCPSocket(pcb);
+    
+    // _list_head->next is null so _list_head = _lists_head->next; should work
+    if (_list_head->next){
+        _list_head = _list_head->next;
+    }else {
+        _list_head = NULL;
+    }
+        
+    return new_soc;
+}
+
+err_t TCPSocket::_accept(tcp_pcb* pcb, err_t err){
+    // TODO: Check if struct is null
+    pcb_node *new_node;
+    new_node = (pcb_node *)malloc(sizeof(pcb_node));
+    new_node->self = (pcb_types *)malloc(sizeof(pcb_types));
+    new_node->self->tcp = pcb;
+    _append_node(new_node);
+    return err;
+}
+
+err_t TCPSocket::accept_callback(void* arg, tcp_pcb* pcb, err_t err){
+    return reinterpret_cast<TCPSocket *>(arg)->_accept(pcb, err);  // arg is the class instance set by tcp_arg
+}
+
 err_t TCPSocket::send(const void* data, uint16_t len){
     if(!tcp_socket)
         return ERR_CONN;
 
     size_t max_size = tcp_sndbuf(tcp_socket);
     if(len > max_size) len = max_size;  // for now nothing more than what pcb allows can be sent
-    tcp_write(tcp_socket, data, len, 0);
+    tcp_write(tcp_socket, data, len, 0);  // writes into buffer
 
-    return tcp_output(tcp_socket);
+    return tcp_output(tcp_socket);  // sends buffer out
 }
 
 err_t TCPSocket::send(const void* data){
@@ -92,7 +132,11 @@ err_t TCPSocket::recv_callback(void* arg, tcp_pcb* pcb, pbuf* p, err_t err){
 }
 
 err_t TCPSocket::data_available(){
-    return _rx_pbuf ? 1 : -1;
+    return _rx_pbuf ? 1 : 0;
+}
+
+err_t TCPSocket::client_available(){
+    return _list_head ? 1 : 0;
 }
 
 void TCPSocket::_update_buffer(size_t size){
@@ -113,4 +157,20 @@ void TCPSocket::_update_buffer(size_t size){
         pbuf_ref(_rx_pbuf);
         pbuf_free(temp);
     }
+}
+
+// PCB LINKED LIST SECTION
+void TCPSocket::_append_node(pcb_node *new_node){
+    if(!_list_head){
+        _list_head = new_node;
+    }else if(!_list_tail){
+        _list_tail = new_node;
+    }else{
+        _list_tail->next = new_node;
+        _list_tail = new_node;
+    }
+}
+
+TCPSocket::operator bool(){
+    return tcp_socket;
 }
