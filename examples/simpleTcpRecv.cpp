@@ -32,7 +32,7 @@ void setup() {
 void loop() {
   delay(500);
   s.send("test\n");
-  if(s.data_available() != -1){
+  if(s.data_available() == 1){
     s.read(buffer);
     Serial.println(buffer);
     memset(buffer, 0, 512);

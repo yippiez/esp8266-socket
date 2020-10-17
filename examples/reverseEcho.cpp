@@ -29,7 +29,7 @@ void setup() {
 
 void loop() {
   delay(500);
-  if(s.data_available() != -1){
+  if(s.data_available() == 1){
     s.read(buffer);
     s.send(buffer);
     Serial.print(buffer);
