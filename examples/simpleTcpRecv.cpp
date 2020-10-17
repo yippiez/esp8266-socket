@@ -25,8 +25,8 @@ void setup() {
   Serial.print("The IP Address of ESP8266 Module is: ");
   Serial.print(WiFi.localIP());// Print the IP address
 
-  Serial.println("Creating the socket.");
-  s.connect(IPAddress(192,168,1,37), 1342);
+  Serial.println("\nCreating the socket.");
+  s.connect(IPAddress(192,168,1,30), 1342);
 }
 
 void loop() {
