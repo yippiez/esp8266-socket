@@ -30,6 +30,7 @@ class TCPSocket{
         err_t send(const void* data);
         char read();
         err_t read(char* dst);
+        err_t abort();
         
         // Callbacks
         static err_t recv_callback(void* arg, tcp_pcb* pcb, pbuf* p, err_t err);
@@ -39,6 +40,9 @@ class TCPSocket{
         err_t data_available();
         err_t client_available();
         operator bool();
+        bool conn_alive = true;
+        bool is_listening = false; // TODO: check if this needed
+        // bool debug_flag = false;
 
     private:
         void _update_buffer(size_t size);

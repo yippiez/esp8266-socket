@@ -20,8 +20,8 @@ typedef union pcb_types{
 } pcb_types;
 
 typedef struct pcb_node{
-    union pcb_types *self;
-    struct pcb_node *next;
+    union pcb_types *self=NULL;
+    struct pcb_node *next=NULL;
 } pcb_node;
 
 #endif // LINKEDPCB_H

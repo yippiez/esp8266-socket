@@ -42,6 +42,11 @@ err_t TCPSocket::bind(IPAddress ip, uint16_t port){
 void TCPSocket::listen(){
     tcp_socket = tcp_listen(tcp_socket);  // listen destroys the given and returns more minimal pcb
     tcp_accept(tcp_socket, &accept_callback);
+    tcp_arg(tcp_socket, this);
+
+    tcp_socket->so_options |= SOF_REUSEADDR;
+
+    is_listening = true;
 }
 
 TCPSocket* TCPSocket::accept(){
@@ -53,22 +58,33 @@ TCPSocket* TCPSocket::accept(){
     tcp_pcb *pcb = _list_head->self->tcp;
     TCPSocket *new_soc = new TCPSocket(pcb);
     
-    // _list_head->next is null so _list_head = _lists_head->next; should work
-    if (_list_head->next){
-        _list_head = _list_head->next;
-    }else {
-        _list_head = NULL;
+    if(!new_soc){
+        return 0;
     }
-        
+
+    if(pcb)
+        tcp_backlog_accepted(pcb); // allow lwip to have one more connection
+
+    _list_head = _list_head->next;
+
     return new_soc;
 }
 
-err_t TCPSocket::_accept(tcp_pcb* pcb, err_t err){
-    // TODO: Check if struct is null
+err_t TCPSocket::_accept(tcp_pcb* newpcb, err_t err){
+    // TODO: Check for memory errors
     pcb_node *new_node;
     new_node = (pcb_node *)malloc(sizeof(pcb_node));
+
+    if(!new_node){
+        return ERR_MEM;
+    }
+
     new_node->self = (pcb_types *)malloc(sizeof(pcb_types));
-    new_node->self->tcp = pcb;
+    new_node->self->tcp = newpcb;
+    new_node->next = NULL;
+
+    tcp_backlog_delayed(newpcb);
+
     _append_node(new_node);
     return err;
 }
@@ -96,6 +112,18 @@ err_t TCPSocket::_recv(tcp_pcb* pcb, pbuf* p, err_t err){
     // Check for offset
     (void) pcb;
     
+    if(p==NULL){
+        // connection closed
+        conn_alive = false;
+
+        if(_rx_pbuf){
+            return ERR_OK;
+        }else{
+            abort();
+            return ERR_ABRT;
+        }
+    }
+
     if (!_rx_pbuf){    
         _rx_pbuf = p;
         _rx_pbuf_offset = 0;
@@ -163,14 +191,33 @@ void TCPSocket::_update_buffer(size_t size){
 void TCPSocket::_append_node(pcb_node *new_node){
     if(!_list_head){
         _list_head = new_node;
-    }else if(!_list_tail){
-        _list_tail = new_node;
     }else{
-        _list_tail->next = new_node;
-        _list_tail = new_node;
+        pcb_node *tmp;
+        tmp = _list_head;
+        while(tmp){
+            tmp = tmp->next;
+        }
+        tmp->next = new_node;
     }
 }
 
 TCPSocket::operator bool(){
-    return tcp_socket;
+    return tcp_socket && conn_alive;
+}
+
+err_t TCPSocket::abort(){
+
+    // TODO: test if this actualy needed
+    if(is_listening){
+        tcp_accept(tcp_socket, NULL);
+    }
+
+    if(tcp_socket){
+        tcp_arg(tcp_socket, NULL);
+        tcp_recv(tcp_socket, NULL);
+        tcp_abort(tcp_socket);
+        tcp_socket = NULL;
+    }
+    
+    return ERR_ABRT;
 }
