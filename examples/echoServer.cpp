@@ -5,11 +5,14 @@
 
 
 TCPSocket *s = new TCPSocket; // creates the socket
+TCPSocket *client;
+
 const char* ssid = "ssid";
 const char* password = "pass";
 char buffer[512];
 
 void setup() {
+  // put your setup code here, to run once:
   Serial.begin(115200);
 
   WiFi.begin(ssid, password);
@@ -29,16 +32,23 @@ void setup() {
 }
 
 void loop() {
+  // put your main code here, to run repeatedly:
 
-  TCPSocket *client = s->accept(); // returns 0/NULL when there is no connection
-  delay(100);
-
+  client = s->accept();
+  
+  delay(1000);
+  Serial.println("Waiting for a client");
   if(client){
     Serial.println("Got a client");
   }
-  
+
   while(client){
-    delay(500);
+    delay(1000);
+
+    if(!client->conn_alive){
+      break;
+    }
+
     if(client->data_available() == 1){
       client->read(buffer);
       Serial.println(buffer);
@@ -46,4 +56,5 @@ void loop() {
       memset(buffer,0,512);
     }
   }
+  client = NULL;
 }
